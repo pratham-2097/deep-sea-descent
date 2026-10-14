@@ -2,7 +2,9 @@
 
 A small underwater scene you can swim through, drawn entirely with my own rendering code on an HTML canvas. No WebGL, no graphics libraries.
 
-**Play it here:** https://pratham-2097.github.io/deep-sea-descent/
+**Play it here:** https://pratham-2097.github.io/deep-sea-descent/  
+**Documentation:** https://pratham-2097.github.io/deep-sea-descent/docs.html  
+**Demo video:** https://www.youtube.com/watch?v=JwJnZu6r0iY
 
 Computer Graphics I, Project 1 (pinhole camera, rasterized display) · Pratham Prabhu
 
@@ -67,4 +69,4 @@ Just open `index.html` in a browser. There's nothing to install.
 
 ## AI use
 
-Built with help from Claude (Anthropic), which wrote most of the code. More detail is on the project's documentation page.
+Built with help from Claude (Anthropic), which wrote most of the code. More detail is in the AI use section of the [documentation page](https://pratham-2097.github.io/deep-sea-descent/docs.html#ai).
