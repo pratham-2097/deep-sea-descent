@@ -69,4 +69,4 @@ Just open `index.html` in a browser. There's nothing to install.
 
 ## AI use
 
-Built with help from Claude (Anthropic), which wrote most of the code. More detail is in the AI use section of the [documentation page](https://pratham-2097.github.io/deep-sea-descent/docs.html#ai).
+Built with help from Claude (Anthropic), which wrote most of the code.
