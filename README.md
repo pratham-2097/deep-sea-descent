@@ -66,7 +66,3 @@ Everything lives in `index.html`. The three functions that do the real work:
 ## Running it locally
 
 Just open `index.html` in a browser. There's nothing to install.
-
-## AI use
-
-Built with help from Claude (Anthropic), which wrote most of the code.
