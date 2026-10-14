@@ -303,11 +303,16 @@ screen position
 <!-- ============================================================ -->
 <h2 id="future">5. Future work</h2>
 <ul>
+  <li><strong>A submarine I control.</strong> The biggest next step is to put the player in a submarine instead of a floating camera. That means:
+    <ul>
+      <li><strong>Moving in every direction, including turning.</strong> Right now the camera only slides; it never turns. To steer the submarine left and right, or tilt it up and down, I'd need rotation matrices to rotate the world around the camera before projecting it, on top of the scale and translate I use now.</li>
+      <li><strong>Fish and sharks to catch.</strong> New object types, built from the same kinds of shapes (a body made of pyramids, with a tail fin), that swim around the scene on their own. Sharks would be bigger and faster than fish.</li>
+      <li><strong>Catching them.</strong> Getting close to a fish or shark and pressing a key would catch it, using the same distance check I already use to stop the camera from going inside coral. A score would count how many you've caught, which turns the scene into a real game.</li>
+    </ul>
+  </li>
   <li><strong>Clipping at the near plane.</strong> Right now, a triangle with even one corner behind the camera is skipped completely, so shapes can pop out of view when you get close. Cutting the triangle at the near plane and drawing the part in front would fix that.</li>
-  <li><strong>Rotation.</strong> Turning the camera, and letting objects spin (like a rotating jellyfish), would need rotation matrices on top of the scale and translate I use now.</li>
   <li><strong>Real lighting.</strong> Each face has a fixed brightness. Lighting based on which way a face points relative to a light would look more natural.</li>
   <li><strong>Anti-aliasing.</strong> Edges on the 320 x 200 display look jagged. Taking a few samples per pixel and averaging them would smooth them out.</li>
-  <li><strong>More to do.</strong> A goal, like collecting pearls or diving to a target depth, would turn the scene into a small game.</li>
 </ul>
 
 <!-- ============================================================ -->
