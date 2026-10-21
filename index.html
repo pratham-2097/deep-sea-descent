@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep-Sea Descent</title>
+<style>
+  :root {
+    --bg: #04121d;
+    --line: #17405a;
+    --text: #cfe3f1;
+    --dim: #7fa3bd;
+    --accent: #ffcf6e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+  .page {
+    width: max(560px, min(1100px, calc(100vw - 32px), calc((100vh - 250px) * 1.6)));
+    margin: 0 auto;
+    padding: 22px 0 40px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 34px;
+    letter-spacing: -0.02em;
+    color: #eef7ff;
+  }
+  .byline { margin: 4px 0 0; color: var(--dim); font-size: 15px; }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 18px 0 8px;
+  }
+  #levelName {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .levels { display: flex; }
+  .levels button {
+    font: 13px ui-monospace, Menlo, Consolas, monospace;
+    background: transparent;
+    color: var(--dim);
+    border: 1px solid var(--line);
+    padding: 6px 11px;
+    cursor: pointer;
+  }
+  .levels button + button { border-left: none; }
+  .levels button:first-child { border-radius: 6px 0 0 6px; }
+  .levels button:last-child { border-radius: 0 6px 6px 0; }
+  .levels button:hover { color: #fff; }
+  .levels button.active { background: var(--line); color: #fff; }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: rgb(6, 34, 58);
+  }
+
+  .help {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0 28px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .help h2 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .help p { margin: 0 0 7px; font-size: 14px; }
+  kbd {
+    display: inline-block;
+    min-width: 24px;
+    margin-right: 3px;
+    padding: 2px 6px;
+    text-align: center;
+    font: 12px ui-monospace, Menlo, Consolas, monospace;
+    color: #e9f5ff;
+    background: #0b2a40;
+    border: 1px solid #2a5878;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>Deep-Sea Descent</h1>
+    <p class="byline">by Pratham Prabhu</p>
+  </header>
+
+  <div class="bar">
+    <div id="levelName">Level 0: Cube</div>
+    <div class="levels" id="levels">
+      <button data-level="0">0 Cube</button>
+      <button data-level="1">1 Wireframe</button>
+      <button data-level="2">2 Raster lines</button>
+      <button data-level="3">3 Filled</button>
+    </div>
+  </div>
+
+  <canvas id="screen"></canvas>
+
+  <section class="help">
+    <div>
+      <h2>Move</h2>
+      <p><kbd>&larr;</kbd><kbd>&rarr;</kbd> left / right</p>
+      <p><kbd>&uarr;</kbd><kbd>&darr;</kbd> forward / back</p>
+      <p><kbd>Q</kbd><kbd>E</kbd> sink / rise</p>
+    </div>
+    <div>
+      <h2>Do</h2>
+      <p><kbd>Space</kbd> release a bubble</p>
+      <p><kbd>R</kbd> reset everything</p>
+    </div>
+    <div>
+      <h2>View</h2>
+      <p><kbd>0</kbd><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> switch level</p>
+      <p><kbd>G</kbd> pixel grid (levels 2 and 3)</p>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ---------- screen setup ----------
+// The low-res display is 320 x 200, and we draw each of its pixels as a
+// 5x5 square, which makes the real canvas 1600 x 1000.
+// Level 1 draws straight onto that same 1600 x 1000 canvas with canvas lines.
+const COLS = 320;
+const ROWS = 200;
+const PIXEL_SIZE = 5;
+const WIDTH = COLS * PIXEL_SIZE;
+const HEIGHT = ROWS * PIXEL_SIZE;
+
+const NEAR = 0.4;          // we skip anything closer than this to the camera
+const FOG_DISTANCE = 32;   // roughly how far you can see before things fade out
+const WATER = [6, 34, 58]; // water color, used for the background
+
+const canvas = document.getElementById("screen");
+const ctx = canvas.getContext("2d");
+canvas.width = WIDTH;
+canvas.height = HEIGHT;
+
+function toCss(c) {
+  return "rgb(" + Math.round(c[0]) + ", " + Math.round(c[1]) + ", " + Math.round(c[2]) + ")";
+}
+const WATER_CSS = toCss(WATER);
+
+// Works out the final color for a shape.
+// brightness darkens it (1 = normal), so each face of a shape gets its own shade.
+// distance blends it toward the water color, so far-away things fade out.
+function shadeColor(color, distance, brightness) {
+  let fade = distance / FOG_DISTANCE;
+  if (fade < 0) fade = 0;
+  if (fade > 0.88) fade = 0.88;
+  return toCss([
+    color[0] * brightness * (1 - fade) + WATER[0] * fade,
+    color[1] * brightness * (1 - fade) + WATER[1] * fade,
+    color[2] * brightness * (1 - fade) + WATER[2] * fade
+  ]);
+}
+
+// ---------- models ----------
+// Each object type gets built once here, centered at the origin.
+//   vertices:  [x, y, z] points
+//   edges:     pairs of vertex numbers we join with a line (levels 1 and 2)
+//   triangles: three vertex numbers plus a brightness for that face (level 3)
+
+function newModel() {
+  return { vertices: [], edges: [], triangles: [] };
+}
+
+// Adds a box centered at (cx, cy, cz). hx, hy, hz are half the width, height and depth.
+function addBox(model, cx, cy, cz, hx, hy, hz) {
+  const start = model.vertices.length; // remember where this box's corners start in the list
+
+  model.vertices.push(
+    [cx - hx, cy - hy, cz - hz], // 0 bottom front left
+    [cx + hx, cy - hy, cz - hz], // 1 bottom front right
+    [cx + hx, cy - hy, cz + hz], // 2 bottom back right
+    [cx - hx, cy - hy, cz + hz], // 3 bottom back left
+    [cx - hx, cy + hy, cz - hz], // 4 top front left
+    [cx + hx, cy + hy, cz - hz], // 5 top front right
+    [cx + hx, cy + hy, cz + hz], // 6 top back right
+    [cx - hx, cy + hy, cz + hz]  // 7 top back left
+  );
+
+  // join the bottom square, then the top square, then the 4 vertical edges
+  const edges = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7]
+  ];
+
+  // we split each face into two triangles; the last number sets how bright that face is
+  const triangles = [
+    [0, 1, 5, 0.85], [0, 5, 4, 0.85], // front
+    [1, 2, 6, 0.70], [1, 6, 5, 0.70], // right
+    [2, 3, 7, 0.60], [2, 7, 6, 0.60], // back
+    [3, 0, 4, 0.95], [3, 4, 7, 0.95], // left
+    [4, 5, 6, 1.00], [4, 6, 7, 1.00], // top
+    [0, 2, 1, 0.50], [0, 3, 2, 0.50]  // bottom
+  ];
+
+  for (const e of edges) model.edges.push([start + e[0], start + e[1]]);
+  for (const t of triangles) model.triangles.push([start + t[0], start + t[1], start + t[2], t[3]]);
+}
+
+// Adds a pyramid with a square base (hw is half the base width).
+function addPyramid(model, cx, cz, hw, yBase, yTip) {
+  const start = model.vertices.length;
+
+  model.vertices.push(
+    [cx - hw, yBase, cz - hw], // 0 front left
+    [cx + hw, yBase, cz - hw], // 1 front right
+    [cx + hw, yBase, cz + hw], // 2 back right
+    [cx - hw, yBase, cz + hw], // 3 back left
+    [cx, yTip, cz]             // 4 tip
+  );
+
+  const edges = [
+    [0, 1], [1, 2], [2, 3], [3, 0],  // base
+    [0, 4], [1, 4], [2, 4], [3, 4]   // up to the tip
+  ];
+
+  const triangles = [
+    [0, 1, 4, 0.85], // front
+    [1, 2, 4, 0.70], // right
+    [2, 3, 4, 0.60], // back
+    [3, 0, 4, 0.95], // left
+    [0, 2, 1, 0.50], [0, 3, 2, 0.50] // base
+  ];
+
+  for (const e of edges) model.edges.push([start + e[0], start + e[1]]);
+  for (const t of triangles) model.triangles.push([start + t[0], start + t[1], start + t[2], t[3]]);
+}
+
+const MODELS = {};
+
+// Level 0: a 2x2x2 cube
+MODELS.cube = newModel();
+addBox(MODELS.cube, 0, 0, 0, 1, 1, 1);
+
+// Object type 1: jellyfish. We build the bell from a flat slab with a pyramid
+// on top, then hang 5 tentacles underneath.
+MODELS.jelly = newModel();
+addBox(MODELS.jelly, 0, -0.4, 0, 0.65, 0.15, 0.65);
+addPyramid(MODELS.jelly, 0, 0, 0.65, -0.25, 0.6);
+
+const tentacleSpots = [[-0.45, -0.45], [0.45, -0.45], [0.45, 0.45], [-0.45, 0.45], [0, 0]];
+for (const spot of tentacleSpots) {
+  const x = spot[0];
+  const z = spot[1];
+  const m = MODELS.jelly;
+
+  // for levels 1 and 2, each tentacle is a single line
+  const top = m.vertices.push([x, -0.55, z]) - 1;
+  const bottom = m.vertices.push([x * 1.15, -1.9, z * 1.15]) - 1;
+  m.edges.push([top, bottom]);
+
+  // for level 3 a line has no area to fill, so we give the tentacle some
+  // width with a skinny rectangle (2 triangles)
+  const w = 0.08;
+  const a = m.vertices.push([x - w, -0.55, z]) - 1;
+  const b = m.vertices.push([x + w, -0.55, z]) - 1;
+  const c = m.vertices.push([x * 1.15 - w, -1.9, z * 1.15]) - 1;
+  const d = m.vertices.push([x * 1.15 + w, -1.9, z * 1.15]) - 1;
+  m.triangles.push([a, b, c, 0.9], [b, d, c, 0.9]);
+}
+
+// Object type 2: coral, a tall pyramid with a short box beside it
+MODELS.coral = newModel();
+addPyramid(MODELS.coral, 0, 0, 0.4, -1, 1);
+addBox(MODELS.coral, 0.62, -0.55, 0, 0.17, 0.45, 0.17);
+
+// Object type 3: bubble, a diamond shape (two pyramids joined at the base)
+MODELS.bubble = newModel();
+MODELS.bubble.vertices.push(
+  [1, 0, 0],  // 0 right
+  [-1, 0, 0], // 1 left
+  [0, 1, 0],  // 2 top
+  [0, -1, 0], // 3 bottom
+  [0, 0, 1],  // 4 back
+  [0, 0, -1]  // 5 front
+);
+MODELS.bubble.edges.push(
+  [5, 0], [0, 4], [4, 1], [1, 5],  // the middle ring
+  [2, 0], [2, 1], [2, 4], [2, 5],  // up to the top point
+  [3, 0], [3, 1], [3, 4], [3, 5]   // down to the bottom point
+);
+MODELS.bubble.triangles.push(
+  [5, 0, 2, 1.0], [0, 4, 2, 0.85], [4, 1, 2, 0.7], [1, 5, 2, 0.95], // top half
+  [5, 0, 3, 0.75], [0, 4, 3, 0.6], [4, 1, 3, 0.55], [1, 5, 3, 0.7]  // bottom half
+);
+
+// Object type 4: one seafloor square, 2 units wide, lying flat on y = 0
+MODELS.tile = newModel();
+MODELS.tile.vertices.push([-1, 0, -1], [1, 0, -1], [1, 0, 1], [-1, 0, 1]);
+MODELS.tile.edges.push([0, 1], [1, 2], [2, 3], [3, 0]);
+MODELS.tile.triangles.push([0, 1, 2, 1], [0, 2, 3, 1]);
+
+// ---------- the scene ----------
+// Each object in the scene is an instance of one of the models above, with
+// its own position, scale and color. We only move and scale them, no rotation.
+
+const ORANGE = [232, 115, 74];
+const PINK = [217, 69, 107];
+const PURPLE = [199, 125, 255];
+const PALE_BLUE = [191, 233, 255];
+
+function buildScene() {
+  const list = [];
+
+  // we lay the seafloor out as a checkerboard of tiles
+  for (let row = -3; row <= 19; row++) {
+    for (let col = -5; col <= 5; col++) {
+      const dark = (row + col) % 2 === 0;
+      list.push({
+        model: "tile",
+        position: [col * 2, 0, row * 2 + 1],
+        scale: 1,
+        color: dark ? [18, 66, 104] : [26, 92, 140]
+      });
+    }
+  }
+
+  // coral: [x, z, size]
+  const corals = [
+    [-2.8, 3.5, 0.9], [2.4, 4, 1.0], [-4, 6, 1.3], [3.5, 7, 1.7], [-1.5, 11, 1.2],
+    [5.5, 13, 1.9], [-6.5, 15, 1.5], [1.2, 18, 1.4], [-3, 22, 1.8], [6, 24, 1.3],
+    [0, 27, 2.0], [-7, 29, 1.6], [3, 31, 1.5], [-2, 34, 1.9]
+  ];
+  corals.forEach((c, i) => {
+    // the coral model goes from y = -1 to y = 1, so we lift it up by its size
+    // to make the bottom sit on the floor
+    list.push({
+      model: "coral",
+      position: [c[0], c[2], c[1]],
+      scale: c[2],
+      color: i % 2 === 0 ? ORANGE : PINK
+    });
+  });
+
+  // jellyfish: [x, y, z, size]
+  const jellies = [
+    [-1.3, 3.4, 6, 1], [2.6, 4.6, 9, 1.2], [-4.4, 4.2, 10.5, 0.9], [0.8, 3.6, 13, 1.1],
+    [-2.5, 5.2, 17, 1.3], [4.5, 3.8, 20, 1], [0, 4.6, 25, 1.2], [-5, 3.5, 28, 1]
+  ];
+  jellies.forEach((j, i) => {
+    list.push({
+      model: "jelly",
+      position: [j[0], j[1], j[2]],
+      scale: j[3],
+      color: PURPLE,
+      startY: j[1],    // they bob up and down around this height
+      offset: i * 1.7  // so they don't all bob in sync
+    });
+  });
+
+  // then scatter a few bubbles around to start with
+  const bubbles = [
+    [0.2, 2.4, 3.2], [0.5, 2.9, 3.6], [-0.1, 3.3, 3.1], [3, 2.4, 5],
+    [-2.6, 2.0, 4.2], [1.8, 3.9, 7.5], [-3.4, 3.1, 8.2], [0.4, 4.8, 10]
+  ];
+  for (const b of bubbles) {
+    list.push({ model: "bubble", position: b, scale: 0.18, color: PALE_BLUE });
+  }
+
+  return list;
+}
+
+const cubeScene = [{ model: "cube", position: [0, 2.2, 4], scale: 1, color: [255, 220, 120] }];
+
+const CAMERA_START = { x: 0, y: 2.2, z: -1 };
+let camera = { ...CAMERA_START };
+let scene = buildScene();
+let releasedBubbles = []; // bubbles the player lets out with space
+let level = 0;
+let seePixelOutline = false;
+
+// ---------- pinhole camera ----------
+// Pinhole camera projection, done in four steps:
+//   1. place the vertex in the world: scale it, then move it to the object's position
+//   2. subtract the camera position, which puts the camera at (0, 0, 0)
+//   3. divide by z: u = x / z and v = y / z
+//   4. stretch u and v to fit the screen we're drawing on
+// If the point ends up behind the camera (or too close to it) we return null.
+function project(vertex, obj, screenW, screenH) {
+  const x = vertex[0] * obj.scale + obj.position[0] - camera.x;
+  const y = vertex[1] * obj.scale + obj.position[1] - camera.y;
+  const z = vertex[2] * obj.scale + obj.position[2] - camera.z;
+
+  if (z < NEAR) return null;
+
+  const u = x / z;
+  const v = y / z;
+
+  const zoom = screenH * 1.2; // bigger = more zoomed in
+  const screenX = screenW / 2 + u * zoom;
+  const screenY = screenH / 2 - v * zoom; // we subtract here because canvas y counts downward
+
+  return [screenX, screenY, z]; // we hang on to z because level 3 uses it for depth
+}
+
+// ---------- level 0 and 1: wireframe with canvas lines ----------
+function drawWireframe(objects) {
+  ctx.fillStyle = WATER_CSS;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+  ctx.lineWidth = 2;
+
+  for (const obj of objects) {
+    const distance = obj.position[2] - camera.z;
+    if (distance < -3) continue; // whole thing is behind us
+
+    const model = MODELS[obj.model];
+    const points = model.vertices.map(v => project(v, obj, WIDTH, HEIGHT));
+
+    ctx.strokeStyle = shadeColor(obj.color, distance, 1);
+    ctx.beginPath();
+    for (const edge of model.edges) {
+      const p1 = points[edge[0]];
+      const p2 = points[edge[1]];
+      if (!p1 || !p2) continue; // one end is behind the camera, skip this edge
+      ctx.moveTo(p1[0], p1[1]);
+      ctx.lineTo(p2[0], p2[1]);
+    }
+    ctx.stroke();
+  }
+}
+
+// ---------- the 320 x 200 pixel grid (levels 2 and 3) ----------
+// pixelGrid[u][v] holds the color of each pixel on the 320 x 200 display.
+const pixelGrid = Array.from({ length: COLS }, () => Array(ROWS).fill(WATER_CSS));
+const depthBuffer = Array.from({ length: COLS }, () => Array(ROWS).fill(Infinity));
+
+function setPixelColor(u, v, color) {
+  if (u < 0 || u >= COLS || v < 0 || v >= ROWS) return; // off screen
+  pixelGrid[u][v] = color;
+}
+
+function clearPixelGrid() {
+  for (let u = 0; u < COLS; u++) pixelGrid[u].fill(WATER_CSS);
+}
+
+// Draws each pixel as a 5x5 square. We paint the water once first, so after
+// that we only need to draw the pixels that aren't water.
+function drawPixelGrid() {
+  ctx.fillStyle = WATER_CSS;
+  ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+  for (let v = 0; v < ROWS; v++) {
+    for (let u = 0; u < COLS; u++) {
+      const color = pixelGrid[u][v];
+      if (color === WATER_CSS) continue;
+      ctx.fillStyle = color;
+      ctx.fillRect(u * PIXEL_SIZE, v * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+    }
+  }
+
+  if (seePixelOutline) {
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let u = 0; u <= COLS; u++) {
+      ctx.moveTo(u * PIXEL_SIZE, 0);
+      ctx.lineTo(u * PIXEL_SIZE, HEIGHT);
+    }
+    for (let v = 0; v <= ROWS; v++) {
+      ctx.moveTo(0, v * PIXEL_SIZE);
+      ctx.lineTo(WIDTH, v * PIXEL_SIZE);
+    }
+    ctx.stroke();
+  }
+}
+
+// ---------- level 2: our own line drawing ----------
+// We step along the line one pixel at a time, adding the slope each step and
+// rounding to the nearest pixel.
+//   - for steep lines (more change in v than in u) we step through rows instead
+//   - if the line runs backwards, we swap the two ends first
+// We also only loop over the part of the line that's on screen, so an edge with
+// one end way off screen doesn't loop thousands of times.
+function drawLine(u1, v1, u2, v2, color) {
+  u1 = Math.round(u1);
+  v1 = Math.round(v1);
+  u2 = Math.round(u2);
+  v2 = Math.round(v2);
+
+  if (Math.abs(u2 - u1) >= Math.abs(v2 - v1)) {
+    // mostly sideways: one pixel per column
+    if (u1 > u2) {
+      [u1, u2] = [u2, u1];
+      [v1, v2] = [v2, v1];
+    }
+    if (u1 === u2) { // both ends are the same pixel
+      setPixelColor(u1, v1, color);
+      return;
+    }
+    const slope = (v2 - v1) / (u2 - u1);
+    const first = Math.max(u1, 0);
+    const last = Math.min(u2, COLS - 1);
+    let v = v1 + slope * (first - u1);
+    for (let u = first; u <= last; u++) {
+      setPixelColor(u, Math.round(v), color);
+      v += slope;
+    }
+  } else {
+    // mostly up and down: one pixel per row
+    if (v1 > v2) {
+      [u1, u2] = [u2, u1];
+      [v1, v2] = [v2, v1];
+    }
+    const slope = (u2 - u1) / (v2 - v1);
+    const first = Math.max(v1, 0);
+    const last = Math.min(v2, ROWS - 1);
+    let u = u1 + slope * (first - v1);
+    for (let v = first; v <= last; v++) {
+      setPixelColor(Math.round(u), v, color);
+      u += slope;
+    }
+  }
+}
+
+function drawRasterLines(objects) {
+  clearPixelGrid();
+
+  for (const obj of objects) {
+    const distance = obj.position[2] - camera.z;
+    if (distance < -3) continue;
+
+    const model = MODELS[obj.model];
+    const points = model.vertices.map(v => project(v, obj, COLS, ROWS));
+    const color = shadeColor(obj.color, distance, 1);
+
+    for (const edge of model.edges) {
+      const p1 = points[edge[0]];
+      const p2 = points[edge[1]];
+      if (!p1 || !p2) continue;
+      drawLine(p1[0], p1[1], p2[0], p2[1], color);
+    }
+  }
+
+  drawPixelGrid();
+}
+
+// ---------- level 3: filling triangles ----------
+
+// Area of triangle a-b-c (each point is [u, v]). This comes out negative when
+// the corners go clockwise, which is fine since we then divide one of these
+// areas by another one and the signs cancel out.
+function triangleArea(a, b, c) {
+  return 0.5 * ((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]));
+}
+
+// Fills one triangle using barycentric coordinates and the depth buffer.
+// a, b, c are projected points: [u, v, depth]
+function fillTriangle(a, b, c, color) {
+  const total = triangleArea(a, b, c);
+  if (total === 0) return; // seen exactly edge-on, nothing to fill
+
+  // we make a bounding box so we only check pixels near the triangle
+  const minU = Math.max(0, Math.floor(Math.min(a[0], b[0], c[0])));
+  const maxU = Math.min(COLS - 1, Math.ceil(Math.max(a[0], b[0], c[0])));
+  const minV = Math.max(0, Math.floor(Math.min(a[1], b[1], c[1])));
+  const maxV = Math.min(ROWS - 1, Math.ceil(Math.max(a[1], b[1], c[1])));
+
+  for (let v = minV; v <= maxV; v++) {
+    for (let u = minU; u <= maxU; u++) {
+      const p = [u + 0.5, v + 0.5]; // we test the center of each pixel
+
+      // we split the triangle into 3 smaller ones around p, then divide each area by the total
+      const alpha = triangleArea(p, b, c) / total; // how much a counts
+      const beta = triangleArea(a, p, c) / total;  // how much b counts
+      const gamma = triangleArea(a, b, p) / total; // how much c counts
+
+      // if any of them is negative, the pixel is outside the triangle
+      if (alpha < 0 || beta < 0 || gamma < 0) continue;
+
+      // then we mix the 3 corner depths to get the depth at this pixel
+      const depth = alpha * a[2] + beta * b[2] + gamma * c[2];
+
+      // and only draw it if it's closer than what's already been drawn here
+      if (depth < depthBuffer[u][v]) {
+        depthBuffer[u][v] = depth;
+        pixelGrid[u][v] = color;
+      }
+    }
+  }
+}
+
+function drawFilledTriangles(objects) {
+  clearPixelGrid();
+  for (let u = 0; u < COLS; u++) depthBuffer[u].fill(Infinity);
+
+  for (const obj of objects) {
+    const distance = obj.position[2] - camera.z;
+    if (distance < -3) continue;
+
+    const model = MODELS[obj.model];
+    const points = model.vertices.map(v => project(v, obj, COLS, ROWS));
+
+    for (const tri of model.triangles) {
+      const a = points[tri[0]];
+      const b = points[tri[1]];
+      const c = points[tri[2]];
+      if (!a || !b || !c) continue; // part of it is behind the camera, skip it
+
+      const brightness = tri[3];
+      const middleDepth = (a[2] + b[2] + c[2]) / 3;
+      fillTriangle(a, b, c, shadeColor(obj.color, middleDepth, brightness));
+    }
+  }
+
+  drawPixelGrid();
+}
+
+// ---------- keyboard and buttons ----------
+const held = {}; // keys currently held down
+let bubbleTimer = 0;
+
+const LEVEL_NAMES = [
+  "Level 0: Cube",
+  "Level 1: Wireframe",
+  "Level 2: Raster lines, 320 x 200",
+  "Level 3: Filled triangles"
+];
+const levelName = document.getElementById("levelName");
+const levelButtons = document.querySelectorAll("#levels button");
+
+function setLevel(n) {
+  level = n;
+  levelName.textContent = LEVEL_NAMES[n];
+  levelButtons.forEach(btn => btn.classList.toggle("active", Number(btn.dataset.level) === n));
+}
+
+levelButtons.forEach(btn => {
+  btn.addEventListener("click", () => {
+    setLevel(Number(btn.dataset.level));
+    btn.blur(); // otherwise pressing space would click the button again
+  });
+});
+
+window.addEventListener("keydown", (e) => {
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+
+  // stop the arrow keys and space from scrolling the page
+  if (key.startsWith("Arrow") || key === " ") e.preventDefault();
+
+  held[key] = true;
+
+  if (key === "0" || key === "1" || key === "2" || key === "3") setLevel(Number(key));
+  if (key === "r") resetScene();
+  if (key === "g") seePixelOutline = !seePixelOutline;
+});
+
+window.addEventListener("keyup", (e) => {
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  held[key] = false;
+});
+
+function resetScene() {
+  camera = { ...CAMERA_START };
+  scene = buildScene();
+  releasedBubbles = [];
+}
+
+// ---------- moving the camera ----------
+function clamp(value, low, high) {
+  return Math.min(high, Math.max(low, value));
+}
+
+// checks whether a spot is inside a coral or jellyfish
+function insideSomething(x, y, z) {
+  for (const obj of scene) {
+    if (obj.model !== "coral" && obj.model !== "jelly") continue;
+    const radius = obj.scale * 0.9 + 0.3;
+    const dx = x - obj.position[0];
+    const dz = z - obj.position[2];
+    const closeSideways = dx * dx + dz * dz < radius * radius;
+    const closeUpDown = Math.abs(y - obj.position[1]) < obj.scale * 1.2 + 0.3;
+    if (closeSideways && closeUpDown) return true;
+  }
+  return false;
+}
+
+// Moves the camera (it only slides, it never turns). We keep it inside the
+// scene and stop it from going into things.
+function moveCamera(dx, dy, dz) {
+  const x = clamp(camera.x + dx, -9, 9);
+  const y = clamp(camera.y + dy, 0.7, 8); // 0.7 keeps us above the floor
+  const z = clamp(camera.z + dz, -3, 36);
+
+  if (!insideSomething(x, y, z)) {
+    camera.x = x;
+    camera.y = y;
+    camera.z = z;
+  } else if (!insideSomething(x, camera.y, camera.z)) {
+    camera.x = x; // bumped into something, but can still slide sideways
+  } else if (!insideSomething(camera.x, camera.y, z)) {
+    camera.z = z;
+  }
+}
+
+// ---------- each frame ----------
+let time = 0;
+
+function update(dt) {
+  const step = 6 * dt;
+  let dx = 0;
+  let dy = 0;
+  let dz = 0;
+  if (held["ArrowLeft"]) dx -= step;
+  if (held["ArrowRight"]) dx += step;
+  if (held["ArrowUp"]) dz += step;
+  if (held["ArrowDown"]) dz -= step;
+  if (held["q"]) dy -= step / 2;
+  if (held["e"]) dy += step / 2;
+  if (dx !== 0 || dy !== 0 || dz !== 0) moveCamera(dx, dy, dz);
+
+  // space lets out a bubble a little in front of the camera (one every 0.15 s if held)
+  bubbleTimer -= dt;
+  if (held[" "] && bubbleTimer <= 0) {
+    releasedBubbles.push({
+      model: "bubble",
+      position: [camera.x, camera.y - 0.3, camera.z + 1.4],
+      scale: 0.14,
+      color: PALE_BLUE
+    });
+    if (releasedBubbles.length > 40) releasedBubbles.shift(); // don't let them pile up forever
+    bubbleTimer = 0.15;
+  }
+
+  time += dt;
+
+  // jellyfish bob up and down
+  for (const obj of scene) {
+    if (obj.model === "jelly") {
+      obj.position[1] = obj.startY + 0.35 * Math.sin(time * 1.3 + obj.offset);
+    }
+  }
+
+  // released bubbles float up and a bit forward, then disappear near the top
+  for (const bubble of releasedBubbles) {
+    bubble.position[1] += 1.4 * dt;
+    bubble.position[2] += 0.4 * dt;
+  }
+  releasedBubbles = releasedBubbles.filter(bubble => bubble.position[1] < 9);
+}
+
+function draw() {
+  if (level === 0) {
+    drawWireframe(cubeScene);
+    return;
+  }
+
+  const everything = scene.concat(releasedBubbles);
+  if (level === 1) drawWireframe(everything);
+  if (level === 2) drawRasterLines(everything);
+  if (level === 3) drawFilledTriangles(everything);
+}
+
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - lastTime) / 1000); // seconds since last frame
+  lastTime = now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+setLevel(0);
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

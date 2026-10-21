@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deep-Sea Descent: Documentation</title>
+<style>
+  :root {
+    --bg: #04121d;
+    --panel: #071c2c;
+    --line: #17405a;
+    --text: #cfe3f1;
+    --dim: #7fa3bd;
+    --accent: #ffcf6e;
+    --link: #8fd3ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+  }
+  .page { max-width: 820px; margin: 0 auto; padding: 36px 20px 80px; }
+  a { color: var(--link); }
+  h1 { margin: 0; font-size: 36px; letter-spacing: -0.02em; color: #eef7ff; }
+  .byline { margin: 4px 0 0; color: var(--dim); }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 8px; }
+  .links a {
+    text-decoration: none;
+    font-size: 14px;
+    padding: 7px 14px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: #fff;
+  }
+  .links a.primary { background: var(--line); }
+  nav.toc {
+    margin: 28px 0 8px;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  nav.toc ol { margin: 0; padding-left: 20px; columns: 2; }
+  h2 {
+    margin: 56px 0 12px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+    font-size: 24px;
+    color: #eef7ff;
+  }
+  h3 { margin: 28px 0 6px; font-size: 18px; color: var(--accent); }
+  figure { margin: 18px 0; }
+  figure img { display: block; width: 100%; border: 1px solid var(--line); border-radius: 6px; }
+  figcaption { margin-top: 6px; font-size: 14px; color: var(--dim); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid2 figure { margin: 0; }
+  @media (max-width: 640px) {
+    .grid2 { grid-template-columns: 1fr; }
+    nav.toc ol { columns: 1; }
+  }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--dim); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+  kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    font: 12px ui-monospace, Menlo, Consolas, monospace;
+    background: #0b2a40;
+    border: 1px solid #2a5878;
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: #e9f5ff;
+  }
+  code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.9em; color: #ffe2a8; }
+  pre {
+    margin: 12px 0;
+    padding: 14px 16px;
+    overflow-x: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace;
+    color: #d6eaf8;
+  }
+  pre code { color: inherit; font-size: inherit; }
+  .example {
+    margin: 14px 0;
+    padding: 12px 16px;
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    font-size: 15px;
+  }
+  .placeholder {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--dim);
+    border: 2px dashed var(--line);
+    border-radius: 8px;
+  }
+  .video { position: relative; padding-top: 56.25%; }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>Deep-Sea Descent</h1>
+  <p class="byline">by Pratham Prabhu · Computer Graphics I, Project 1</p>
+  <div class="links">
+    <a class="primary" href="https://pratham-2097.github.io/deep-sea-descent/">Play it</a>
+    <a href="https://github.com/pratham-2097/deep-sea-descent">Source code on GitHub</a>
+    <a href="#video">Demo video</a>
+  </div>
+</header>
+
+<p>Deep-Sea Descent is a small underwater scene you can swim through. You glide past coral, jellyfish and bubbles on a checkerboard seafloor. Everything on screen is drawn by my own code on an HTML canvas, with no WebGL and no graphics libraries. The project has four levels, and each one adds a step of the graphics pipeline: from a plain wireframe to filled triangles on a mock 320 x 200 display.</p>
+
+<nav class="toc">
+  <ol>
+    <li><a href="#design">Design</a></li>
+    <li><a href="#features">Features and controls</a></li>
+    <li><a href="#levels">The four levels</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#future">Future work</a></li>
+    <li><a href="#video">Demo video</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<h2 id="design">1. Design</h2>
+
+<p>I wanted a scene that felt calm and a bit mysterious, where the point is to drift around and look at things. An underwater world fit that well. It also worked with the project's rules: no rotation, simple shapes only, and a fixed camera that just slides around. Coral, jellyfish and bubbles can all be built from pyramids, boxes and diamonds, so the scene still reads as "underwater" even with blocky geometry.</p>
+
+<figure>
+  <img src="screenshots/design-sketch.jpg" alt="Hand-drawn design sketch of the Deep-Sea Descent scene" onerror="this.outerHTML='<div class=&quot;placeholder&quot;>Design sketch goes here</div>'">
+  <figcaption>My original design sketch: the first-person view, and a top-down map of where things sit.</figcaption>
+</figure>
+
+<h3>What I planned</h3>
+<ul>
+  <li><strong>The look:</strong> dark blue water with a checkerboard seafloor running off into the distance. Things fade into the water color as they get farther away, so it feels deep.</li>
+  <li><strong>The objects:</strong> four types, each built once and then copied around the scene at different positions and sizes.
+    <ul>
+      <li><strong>Coral:</strong> a tall pyramid with a small box beside it, in orange and pink.</li>
+      <li><strong>Jellyfish:</strong> a pyramid bell on a flat slab, with five tentacles hanging down. They slowly bob up and down.</li>
+      <li><strong>Bubbles:</strong> small diamond shapes (octahedrons).</li>
+      <li><strong>Seafloor tiles:</strong> flat squares in two shades of blue, laid out like a checkerboard.</li>
+    </ul>
+  </li>
+  <li><strong>How it behaves:</strong> you control a camera that slides left/right and forward/back (plus up/down). It never turns. You can release bubbles that float upward, and the camera can't pass through coral or jellyfish.</li>
+  <li><strong>Levels:</strong> the same scene four ways, so you can see each step of the rendering process: a test cube, a wireframe, a low-res wireframe with my own lines, and filled triangles.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="features">2. Features and controls</h2>
+
+<table>
+  <tr><th>Key</th><th>What it does</th></tr>
+  <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move the camera left / right</td></tr>
+  <tr><td><kbd>&uarr;</kbd> <kbd>&darr;</kbd></td><td>Move forward / back</td></tr>
+  <tr><td><kbd>Q</kbd> <kbd>E</kbd></td><td>Sink / rise</td></tr>
+  <tr><td><kbd>Space</kbd></td><td>Release a bubble (hold it for a stream of bubbles)</td></tr>
+  <tr><td><kbd>R</kbd></td><td>Reset the camera and the whole scene</td></tr>
+  <tr><td><kbd>0</kbd> <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Switch levels (the buttons above the screen do the same thing)</td></tr>
+  <tr><td><kbd>G</kbd></td><td>Show or hide the pixel grid in levels 2 and 3</td></tr>
+</table>
+
+<p>A few more things happen on their own:</p>
+<ul>
+  <li>The jellyfish bob up and down, each one slightly out of step with the others.</li>
+  <li>Released bubbles float up and drift forward, then disappear near the top.</li>
+  <li>If you swim into a coral or jellyfish, the camera stops. If it can still slide sideways or forward, it does.</li>
+  <li>Anything behind the camera, or too close to it, isn't drawn. That stops shapes from flipping or stretching across the screen.</li>
+</ul>
+
+<div class="grid2">
+  <figure>
+    <img src="screenshots/level3-bubbles.png" alt="A trail of released bubbles">
+    <figcaption>Holding <kbd>Space</kbd> releases a trail of bubbles.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/level3-pixel-grid.png" alt="Close up with the pixel grid on">
+    <figcaption>Up close with the pixel grid turned on (<kbd>G</kbd>). Each square is one "pixel" of the 320 x 200 display.</figcaption>
+  </figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="levels">3. The four levels</h2>
+
+<div class="grid2">
+  <figure>
+    <img src="screenshots/level0-cube.png" alt="Level 0, wireframe cube">
+    <figcaption><strong>Level 0:</strong> a single cube made of 8 vertices and 12 edges. The arrow keys move the camera around it.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/level1-wireframe.png" alt="Level 1, full scene wireframe">
+    <figcaption><strong>Level 1:</strong> the whole scene as a wireframe on a 1600 x 1000 canvas, drawn with the canvas line function.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/level2-raster-lines.png" alt="Level 2, low-res lines">
+    <figcaption><strong>Level 2:</strong> the same wireframe on a 320 x 200 display, using my own line-drawing function.</figcaption>
+  </figure>
+  <figure>
+    <img src="screenshots/level3-filled.png" alt="Level 3, filled triangles">
+    <figcaption><strong>Level 3:</strong> filled triangles with a depth buffer, so nearer shapes cover farther ones.</figcaption>
+  </figure>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="how">4. How it works</h2>
+
+<p>Every frame goes through the same pipeline. Only the last step changes between levels.</p>
+
+<pre>model (vertices, edges, triangles)
+   │  scale it, then move it to its position   (instance)
+   ▼
+world position
+   │  subtract the camera position
+   ▼
+camera-relative position (x, y, z)
+   │  u = x / z,  v = y / z                     (pinhole camera)
+   ▼
+screen position
+   │
+   ├─ Level 1 → canvas lines on 1600 x 1000
+   ├─ Level 2 → my own line function → 320 x 200 pixel array
+   └─ Level 3 → triangle fill + depth buffer → 320 x 200 pixel array
+                                       │
+                                       ▼
+                          draw each pixel as a 5 x 5 square</pre>
+
+<h3>4.1 3D objects as vertices and edges</h3>
+<p>Each object type is defined once, centered at the origin, as a list of <strong>vertices</strong> (3D points) and <strong>edges</strong> (pairs of vertex numbers to join with a line). For level 3, the same shapes also get a list of <strong>triangles</strong> (three vertex numbers each). For example, a box has 8 corners, 12 edges, and 12 triangles, since each of its 6 faces is split into 2 triangles.</p>
+<p>To place objects in the scene, I make <strong>instances</strong>. Each instance stores which model it uses, a <strong>position</strong> vector, a <strong>scale</strong> factor and a <strong>color</strong>. To get a vertex's world position, I multiply the model vertex by the scale and then add the position. There's no rotation, only scaling and translation. That's how one coral model becomes 14 corals of different heights.</p>
+<div class="example">
+  <strong>Example:</strong> a coral model vertex at (0, 1, 0), with scale 1.5 and position (2, 1.5, 7):<br>
+  world = (0 × 1.5 + 2, 1 × 1.5 + 1.5, 0 × 1.5 + 7) = <strong>(2, 3, 7)</strong>
+</div>
+
+<h3>4.2 Pinhole camera projection</h3>
+<p>A pinhole camera sees things farther away as smaller. To fake that on a flat screen, I first move everything so the camera sits at (0, 0, 0) by subtracting the camera's position. Then I divide by depth: <code>u = x / z</code> and <code>v = y / z</code>. A point that's twice as far away ends up half as far from the center of the screen. Finally I stretch <code>u</code> and <code>v</code> to fit the canvas, and flip <code>v</code>, because canvas y counts downward.</p>
+<pre><code>function project(vertex, obj, screenW, screenH) {
+  const x = vertex[0] * obj.scale + obj.position[0] - camera.x;
+  const y = vertex[1] * obj.scale + obj.position[1] - camera.y;
+  const z = vertex[2] * obj.scale + obj.position[2] - camera.z;
+
+  if (z &lt; NEAR) return null;   // behind (or right on top of) the camera
+
+  const u = x / z;
+  const v = y / z;
+  ...
+  return [screenX, screenY, z];
+}</code></pre>
+<div class="example">
+  <strong>Example:</strong> camera at (0, 2.2, −1), vertex in the world at (2, 3, 7).<br>
+  Camera-relative: (2 − 0, 3 − 2.2, 7 − (−1)) = (2, 0.8, 8)<br>
+  u = 2 / 8 = 0.25 and v = 0.8 / 8 = 0.1<br>
+  On the 320 x 200 screen (zoom = 200 × 1.2 = 240): screenX = 160 + 0.25 × 240 = <strong>220</strong>, screenY = 100 − 0.1 × 240 = <strong>76</strong>
+</div>
+<p><strong>Objects behind the camera:</strong> if <code>z</code> is tiny or negative, dividing by it would throw the point to the wrong side of the screen. So any vertex with <code>z</code> below 0.4 isn't projected. An edge or triangle that uses it is skipped. On top of that, the camera can't move into coral or jellyfish, and it's kept inside the scene's bounds.</p>
+
+<h3>4.3 Line drawing (level 2)</h3>
+<p>The low-res display is a 2D array, <code>pixelGrid[u][v]</code>, of 320 x 200 colors, all starting as the water color. A line on a grid of squares has to become a staircase of pixels. My <code>drawLine</code> uses the incremental method: start at one end, step one column at a time, add the slope to <code>v</code> each step, and round to the nearest row.</p>
+<div class="example">
+  <strong>Example:</strong> a line from (1, 1) to (6, 4). Slope = (4 − 1) / (6 − 1) = 0.6<br>
+  v values: 1, 1.6, 2.2, 2.8, 3.4, 4.0 → rounded: 1, 2, 2, 3, 3, 4<br>
+  Pixels filled: <strong>(1,1) (2,2) (3,2) (4,3) (5,3) (6,4)</strong>
+</div>
+<p>The basic version only works for lines going left to right with a gentle slope (between 0 and 1). The edges of 3D shapes go every which way, so I added two fixes:</p>
+<ul>
+  <li><strong>Lines going backwards:</strong> if the line goes right to left (or bottom to top), I swap the two ends first, so it always runs in the increasing direction.</li>
+  <li><strong>Steep lines:</strong> if a line changes more in <code>v</code> than in <code>u</code>, stepping by columns would leave gaps. So I step through rows instead and add the inverse slope to <code>u</code>.</li>
+</ul>
+<p>I also only loop over the part of a line that's on screen. Otherwise an edge with one end way off to the side could run thousands of useless steps. Once every edge is drawn into the array, I draw each pixel as a 5 x 5 square on the real canvas.</p>
+
+<h3>4.4 Triangle drawing and the depth buffer (level 3)</h3>
+<p>For level 3, each shape is drawn as filled triangles. Each face gets its own brightness, so you can tell the sides of a shape apart. For each triangle:</p>
+<ol>
+  <li><strong>Bounding box.</strong> I find the smallest rectangle around the triangle's three projected corners, so I only check pixels near it, not the whole screen.</li>
+  <li><strong>Barycentric coordinates.</strong> For each pixel center <code>p</code> in that box, I split the triangle into three smaller triangles that meet at <code>p</code>. Each small triangle's area divided by the whole triangle's area gives a weight: <code>α</code>, <code>β</code>, <code>γ</code>. They always add up to 1.</li>
+  <li><strong>Inside test.</strong> If all three weights are 0 or more, the pixel is inside the triangle. If any one is negative, it's outside.</li>
+  <li><strong>Depth.</strong> The same weights mix the three corner depths: <code>depth = α·z<sub>a</sub> + β·z<sub>b</sub> + γ·z<sub>c</sub></code>.</li>
+  <li><strong>Depth buffer.</strong> A second 320 x 200 array remembers the nearest depth drawn so far at every pixel, starting at infinity. I only write the color if the new depth is closer.</li>
+</ol>
+<div class="example">
+  <strong>Example:</strong> triangle A(0, 0), B(4, 0), C(0, 4), and pixel center P(1, 1). The whole area is 8.<br>
+  α = area(P, B, C) / 8 = 4 / 8 = <strong>0.5</strong> &nbsp; β = area(A, P, C) / 8 = 2 / 8 = <strong>0.25</strong> &nbsp; γ = area(A, B, P) / 8 = 2 / 8 = <strong>0.25</strong><br>
+  All three are positive, so P is inside. If the corner depths are 4, 8 and 12:<br>
+  depth = 0.5 × 4 + 0.25 × 8 + 0.25 × 12 = 2 + 2 + 3 = <strong>7</strong>
+</div>
+<p>Because of the depth buffer, the order I draw triangles in doesn't matter. A near coral always covers a far jellyfish, with no sorting needed. That's the main advantage over the painter's algorithm, which has to sort everything back to front and still breaks when triangles overlap in depth.</p>
+
+<h3>4.5 Color and fog</h3>
+<p>Each instance has a color. Every frame, that color is mixed toward the water color based on distance, so faraway objects fade into the dark. In level 3, each face's brightness value is applied first.</p>
+
+<!-- ============================================================ -->
+<h2 id="future">5. Future work</h2>
+<ul>
+  <li><strong>A submarine I control.</strong> The biggest next step is to put the player in a submarine instead of a floating camera. That means:
+    <ul>
+      <li><strong>Moving in every direction, including turning.</strong> Right now the camera only slides; it never turns. To steer the submarine left and right, or tilt it up and down, I'd need rotation matrices to rotate the world around the camera before projecting it, on top of the scale and translate I use now.</li>
+      <li><strong>Fish and sharks to catch.</strong> New object types, built from the same kinds of shapes (a body made of pyramids, with a tail fin), that swim around the scene on their own. Sharks would be bigger and faster than fish.</li>
+      <li><strong>Catching them.</strong> Getting close to a fish or shark and pressing a key would catch it, using the same distance check I already use to stop the camera from going inside coral. A score would count how many you've caught, which turns the scene into a real game.</li>
+    </ul>
+  </li>
+  <li><strong>Clipping at the near plane.</strong> Right now, a triangle with even one corner behind the camera is skipped completely, so shapes can pop out of view when you get close. Cutting the triangle at the near plane and drawing the part in front would fix that.</li>
+  <li><strong>Real lighting.</strong> Each face has a fixed brightness. Lighting based on which way a face points relative to a light would look more natural.</li>
+  <li><strong>Anti-aliasing.</strong> Edges on the 320 x 200 display look jagged. Taking a few samples per pixel and averaging them would smooth them out.</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="video">6. Demo video</h2>
+<div class="video"><iframe src="https://www.youtube.com/embed/JwJnZu6r0iY" title="Deep-Sea Descent demo" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+<p>A walkthrough of all four levels and the controls, with my voiceover. If the video doesn't load here, <a href="https://www.youtube.com/watch?v=JwJnZu6r0iY">watch it on YouTube</a>.</p>
+
+<p style="margin-top:48px; color:var(--dim); font-size:14px;">
+  <a href="https://pratham-2097.github.io/deep-sea-descent/">Play Deep-Sea Descent</a> ·
+  <a href="https://github.com/pratham-2097/deep-sea-descent">Source on GitHub</a>
+</p>
+
+</div>
+</body>
+</html>
